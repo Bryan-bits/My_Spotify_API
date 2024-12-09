@@ -1,7 +1,7 @@
 
 import tkinter as tk
 from interface import MainInterface
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import threading, queue, os, requests, spotipy
 from flask import Flask, request, jsonify
 from spotipy.oauth2 import SpotifyOAuth
@@ -197,9 +197,10 @@ class SpotifyAuth:
     def run_flask_app(self):
         """Run Flask app to handle OAuth callback."""
         try:
-            self.app.run(port=5000, debug=True, use_reloader=False)
+            self.app.run(port=5000, debug=False, use_reloader=False)
         except Exception as e:
             self.message_queue.put(f"error:Flask app failed to start: {str(e)}")
+        print(f"Error starting Flask app: {str(e)}")
 
     # @self.app.route('/callback')
     def callback(self):
@@ -291,7 +292,8 @@ class AuthManager:
 
     def wait_for_authentication(self, root):
         """Wait until authentication is complete or an error occurs."""
-        while True:
+        timeout_counter = 600  # Timeout after 600 seconds
+        while timeout_counter>0:
             try:
                 message = self.message_queue.get(timeout=1)
                 if message.startswith("success"):
@@ -303,6 +305,9 @@ class AuthManager:
                     get_user_credentials(root, self.token_manager)  # Retry login
             except queue.Empty:
                 continue
+            timeout_counter -= 1
+        else:
+            messagebox.showerror("Timeout", "Authentication process timed out.")
 
 
 class App:
@@ -325,7 +330,9 @@ class App:
     def launch_main_interface(self):
         """Launch the main interface after successful authentication."""
         print("Launching main interface.......")
-        app = MainInterface(self.root, self.auth_manager.token_manager)
+        # message_queue = queue.Queue()
+        # spotify_auth = SpotifyAuth(message_queue)
+        app = MainInterface(self.root, self.auth_manager.token_manager, get_user_credentials, App)
 
         # Show the main window
         self.root.deiconify()
