@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import messagebox, Toplevel, ttk
-from playback import PlaybackConsole
 import random, os, traceback, spotipy, threading
 from spotipy.oauth2 import SpotifyOAuth
 from PIL import Image, ImageTk  # If using Tkinter for display
