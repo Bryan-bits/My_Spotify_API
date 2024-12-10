@@ -848,7 +848,13 @@ class MainInterface:
 
 
 
-
+    def save_record(self, record):
+        """Saves a record to the save list."""
+        if record not in self.saved_list:
+            self.saved_list.append(record)
+            self.update_saved_list()
+        else:
+            messagebox.showinfo("Saved Songs", f"{record['track_name']} is already in the Save List.")
 
 
     def update_saved_list(self):
