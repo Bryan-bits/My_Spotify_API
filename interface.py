@@ -795,7 +795,57 @@ class MainInterface:
 
 
     
-   
+    def follow_singer(self, singer):
+        if singer not in self.followed_list:
+            self.followed_list.append(singer)
+            self.update_followed_list()
+        else:
+            messagebox.showinfo("Followed Artist(s)", f"{singer['artist_name']} is already followed.")
+
+    
+    def update_followed_list(self):
+        try:
+            # Clear the previous followed list content by using grid_forget
+            for widget in self.followed_list_content_frame.winfo_children():
+                widget.grid_forget()
+            
+            if not self.followed_list:
+                # Display a message if no followed singers are available
+                no_followed_label = tk.Label(self.followed_list_content_frame, text="No Followed Singer(s) yet.")
+                no_followed_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+                return
+
+            # Update the followed list label with the total count
+            self.followed_list_label.config(text=f"Followed Singers ({len(self.followed_list)} in total)")
+
+            # Iterate through the followed singers and display their details
+            for row, singer in enumerate(self.followed_list):
+                # Create a frame for each followed singer
+                singer_frame = ttk.Frame(self.followed_list_content_frame, padding=5)
+                singer_frame.grid(row=row, column=0, sticky="w", padx=5, pady=5, columnspan=3)  # Adjust columnspan to fit all buttons
+
+                # Display singer details
+                ttk.Label(
+                    singer_frame,
+                    text=f"Artist Name: {singer['artist_name']}\nGenres: {', '.join(singer['genres'])}\n",
+                    anchor="w", justify="left", wraplength=200
+                ).grid(row=0, column=0, columnspan=3, sticky="w")
+
+                # Create a "Details" button for each followed singer
+                details_button = ttk.Button(singer_frame, text="Details", command=lambda r=singer: self.show_details(r['artist_id'], 'artist_details'))
+                details_button.grid(row=1, column=0, padx=5, pady=5)
+
+                # Create an "Unfollow" button for each followed singer
+                unfollow_button = ttk.Button(singer_frame, text="Unfollow", command=lambda s=singer: self.handle_clicks(s['artist_id'], "unfollow", "artist"))
+                unfollow_button.grid(row=1, column=1, padx=5, pady=5)
+
+                # Create a "Top Song" button for each followed singer
+                top_song_button = ttk.Button(singer_frame, text="Top Song", command=lambda s=singer: self.update_topSongs(s['artist_id'], s['artist_name']))
+                top_song_button.grid(row=1, column=2, padx=5, pady=5)  # Add the button in the third column
+
+        except Exception as e:
+            messagebox.showinfo("Followed Artists", f"Unexpected Error occurred when loading information for 'Followed Artists': {str(e)}")
+
 
 
 
