@@ -24,7 +24,7 @@ from spotipy_api_oauth import (
     fetch_user_profile)
 
 
-class MainInterface:
+class MaintainInterface:
     def __init__(self, root, token_manager, get_user_credentials, App):
         self.root = root
         self.root.title("MySpotify 1.0 Beta")
