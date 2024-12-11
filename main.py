@@ -83,11 +83,13 @@ class TokenManager:
             if response.status_code == 200:
                 data = response.json()
                 self.set_tokens(data['access_token'], self.refresh_token, datetime.now().timestamp() + data['expires_in'])
+                return data['access_token']
             else:
                 print(f"Failed to refresh access token: {response.text}")
                 self.message_queue.put("error:Failed to refresh access token")
         else:
             print("Access token is still valid.")
+            return self.access_token
 
     def validate_user(self, client_id, client_secret):
         """Validate user credentials by performing the OAuth flow."""

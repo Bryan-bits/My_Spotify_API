@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, Toplevel, ttk
+# from playback import PlaybackConsole
 import random, os, traceback, spotipy, threading
 from spotipy.oauth2 import SpotifyOAuth
 from PIL import Image, ImageTk  # If using Tkinter for display
@@ -41,6 +42,7 @@ class MainInterface:
         self.saved_list = get_user_tracks(self.token)
         self.followed_list = get_user_followed_artists(self.token)
         self.current_page = 1
+        self.total_pages = 1
         self.results_per_page = 5
         self.token_manager = token_manager
         print(f"self.token: {self.token}")
@@ -114,14 +116,16 @@ class MainInterface:
         self.results_canvas.create_window((0, 0), window=self.results_frame, anchor="nw")
 
         # # Pagination controls
-        self.prev_button = ttk.Button(self.search_frame, text="<< Prev", command=self.prev_page)
+        self.prev_button = ttk.Button(self.search_frame, text="<< Prev", command=lambda: self.prev_page(self.total_pages))
+
         self.prev_button.grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.prev_button.grid_remove()
 
         self.page_label = ttk.Label(self.search_frame, text="")
         self.page_label.grid(row=2, column=1)
 
-        self.next_button = ttk.Button(self.search_frame, text="Next >>", command=self.next_page)
+        self.next_button = ttk.Button(self.search_frame, text="Next >>", command=lambda: self.next_page(self.total_pages)
+)
         self.next_button.grid(row=2, column=2, sticky="e", padx=5, pady=5)
         self.next_button.grid_remove()
 
@@ -387,7 +391,7 @@ class MainInterface:
 
 
         # Initial population of recommendations
-        # self.refresh_recommendations()
+        self.root.after(10000, self.auto_refresh_recommendations)
 
     def refresh_recommendations(self):
         """Refreshes the recommendations with new items and adds Save, Follow, and Details buttons for each."""
@@ -460,7 +464,7 @@ class MainInterface:
     def auto_refresh_recommendations(self):
         """Automatically refresh recommendations every 30 seconds."""
         self.refresh_recommendations()
-        self.root.after(5000, self.auto_refresh_recommendations)  # 5-second interval for presentation
+        self.root.after(15000, self.auto_refresh_recommendations)  # 5-second interval for presentation
 
 
     def update_topSongs(self, artist_id, artist_name):
@@ -778,20 +782,20 @@ class MainInterface:
             button_row += 1
 
         # Update pagination
-        total_pages = max(1, (len(self.all_results) + self.results_per_page - 1) // self.results_per_page)
-        self.page_label.config(text=f"Page {self.current_page}/{total_pages}")
+        self.total_pages = max(1, (len(self.all_results) + self.results_per_page - 1) // self.results_per_page)
+        self.page_label.config(text=f"Page {self.current_page}/{self.total_pages}")
 
-         # Show and enable/disable pagination buttons
-        if total_pages > 1:
-            self.prev_button.grid()  # Show Prev button
-            self.next_button.grid()  # Show Next button
-            self.prev_button.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
-            self.next_button.config(state=tk.NORMAL if self.current_page < total_pages else tk.DISABLED)
-        else:
-            self.prev_button.grid_remove()  # Hide Prev button
-            self.next_button.grid_remove()  # Hide Next button
+        #  # Show and enable/disable pagination buttons
+        # if self.total_pages > 1:
+        #     self.prev_button.grid()  # Show Prev button
+        #     self.next_button.grid()  # Show Next button
+        #     self.prev_button.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
+        #     self.next_button.config(state=tk.NORMAL if self.current_page <= self.total_pages else tk.DISABLED)
+        # else:
+        #     self.prev_button.grid_remove()  # Hide Prev button
+        #     self.next_button.grid_remove()  # Hide Next button
 
-        self.update_navigation_buttons(total_pages)
+        self.update_navigation_buttons(self.total_pages)
 
 
     
@@ -848,6 +852,7 @@ class MainInterface:
 
 
 
+
     def save_record(self, record):
         """Saves a record to the save list."""
         if record not in self.saved_list:
@@ -855,7 +860,6 @@ class MainInterface:
             self.update_saved_list()
         else:
             messagebox.showinfo("Saved Songs", f"{record['track_name']} is already in the Save List.")
-
 
     def update_saved_list(self):
         """Updates the display of saved records in the save list section."""
@@ -1047,29 +1051,54 @@ class MainInterface:
     #     close_button.pack(pady=5)
 
 
+    def update_page(self, direction, total_pages):
+        """
+        Update the current page and refresh the display and navigation buttons.
+
+        Args:
+            direction (str): 'prev' to go to the previous page, 'next' to go to the next page.
+            total_pages (int): The total number of pages.
+        """
+        if direction == 'prev' and self.current_page > 1:
+            self.current_page -= 1
+        elif direction == 'next' and self.current_page < total_pages:
+            self.current_page += 1
+        else:
+            return  # No action if we're already at the first/last page
+
+        # Refresh the display and update navigation buttons
+        self.display_results()
+        self.update_navigation_buttons(total_pages)
+
+
     def update_navigation_buttons(self, total_pages):
         """Update the state of the navigation buttons (Previous/Next)."""
-
-        # Disable 'Previous' if we are on the first page
-        self.prev_button.config(state=tk.DISABLED if self.current_page == 1 else tk.NORMAL)
-        
-        # Disable 'Next' if we are on the last page
-        self.next_button.config(state=tk.DISABLED if self.current_page == total_pages else tk.NORMAL)
+        if self.total_pages > 1:
+            self.prev_button.grid()  # Show Prev button
+            self.next_button.grid()  # Show Next button
+            # Disable 'Previous' if we are on the first page
+            self.prev_button.config(state=tk.DISABLED if self.current_page == 1 else tk.NORMAL)
+            
+            # Disable 'Next' if we are on the last page
+            self.next_button.config(state=tk.DISABLED if self.current_page == total_pages else tk.NORMAL)
+        elif self.total_pages == 1:
+            self.prev_button.config(state=tk.DISABLED)
+            self.next_button.config(state=tk.DISABLED)
+        else:
+            self.prev_button.grid_remove()  # Hide Prev button
+            self.next_button.grid_remove()  # Hide Next button
 
 
     def prev_page(self, total_pages):
         """Moves to the previous page of search results."""
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.display_results()
-            self.update_navigation_buttons(total_pages)
+        print(f"Previous button clicked. Current page: {self.current_page}, Total pages: {total_pages}")
+        self.update_page('prev', total_pages)
 
     def next_page(self, total_pages):
         """Moves to the next page of search results."""
-        if self.current_page < 10:
-            self.current_page += 1
-            self.display_results()
-            self.update_navigation_buttons(total_pages)
+        print(f"Next button clicked. Current page: {self.current_page}, Total pages: {total_pages}")
+        self.update_page('next', total_pages)
+
 
     def handle_clicks(self, id, action_type, obj):
         # Determine whether the action is to "follow", "save", "unfollow" or "remove"
