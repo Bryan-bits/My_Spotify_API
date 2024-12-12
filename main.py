@@ -1,12 +1,15 @@
-
+import os
+import threading
+import queue
+import webbrowser
+import urllib.parse
+from datetime import datetime
+from tkinter import messagebox
 import tkinter as tk
 from interface import MainInterface
-from tkinter import messagebox, ttk
-import threading, queue, os, requests, spotipy
-from flask import Flask, request, jsonify
-from spotipy.oauth2 import SpotifyOAuth
 from requests import post
-from datetime import datetime
+import requests
+from flask import Flask, request, jsonify
 from dotenv import set_key
 
 
@@ -31,13 +34,6 @@ SCOPES = (
 )
 
 
-import os
-import requests
-import webbrowser
-import urllib.parse
-from datetime import datetime
-import tkinter as tk
-from tkinter import messagebox
 
 class TokenManager:
     def __init__(self, message_queue=None):
@@ -51,14 +47,16 @@ class TokenManager:
 
     def get_auth_header(self):
         """Return the authorization header for API requests."""
+       try:
         if not self.access_token or self.is_token_expired():
-            print("Access token is missing or expired. Refreshing token.")
-            self.refresh_access_token()
-        
-        if not self.access_token:
-            return None
-        
+            refreshed_token = self.refresh_access_token()
+            if not refreshed_token:
+                self.message_queue.put("error:Failed to get valid access token.")
+                return None
         return {'Authorization': f"Bearer {self.access_token}"}
+    except Exception as e:
+        self.message_queue.put(f"error:Unexpected error in get_auth_header: {str(e)}")
+        return None
 
     def is_token_expired(self):
         """Check if the token has expired based on the expiration timestamp."""
@@ -67,29 +65,49 @@ class TokenManager:
     def refresh_access_token(self):
         """Attempt to refresh the access token using the refresh token."""
         if not self.refresh_token:
-            print("No refresh token available.")
+        self.message_queue.put("error:No refresh token available.")
+        return None
+
+    # Prepare the request body
+    req_body = {
+        'grant_type': 'refresh_token',
+        'refresh_token': self.refresh_token,
+        'client_id': self.client_id,
+        'client_secret': self.client_secret
+    }
+
+    try:
+        # Make the request to refresh the token
+        response = requests.post(TOKEN_URL, data=req_body, timeout=10)
+        response.raise_for_status()  # Raise an HTTPError for bad responses
+
+        # Parse the response
+        data = response.json()
+        new_access_token = data.get('access_token')
+        expires_in = data.get('expires_in')
+
+        if not new_access_token or not expires_in:
+            self.message_queue.put("error:Incomplete token data received.")
             return None
 
-        if self.is_token_expired():
-            print("Access token expired. Trying to refresh.")
-            req_body = {
-                'grant_type': 'refresh_token',
-                'refresh_token': self.refresh_token,
-                'client_id': self.client_id,
-                'client_secret': self.client_secret
-            }
+        # Update the tokens and expiration time
+        self.set_tokens(
+            access_token=new_access_token,
+            refresh_token=self.refresh_token,  # Keep the existing refresh token
+            expires_at=datetime.now().timestamp() + expires_in
+        )
+        return new_access_token
 
-            response = requests.post(TOKEN_URL, data=req_body)
-            if response.status_code == 200:
-                data = response.json()
-                self.set_tokens(data['access_token'], self.refresh_token, datetime.now().timestamp() + data['expires_in'])
-                return data['access_token']
-            else:
-                print(f"Failed to refresh access token: {response.text}")
-                self.message_queue.put("error:Failed to refresh access token")
-        else:
-            print("Access token is still valid.")
-            return self.access_token
+    except requests.exceptions.Timeout:
+        self.message_queue.put("error:Token refresh request timed out.")
+    except requests.exceptions.RequestException as e:
+        self.message_queue.put(f"error:Failed to refresh token: {str(e)}")
+    except ValueError:
+        self.message_queue.put("error:Invalid response format during token refresh.")
+    except Exception as e:
+        self.message_queue.put(f"error:Unexpected error during token refresh: {str(e)}")
+
+    return None
 
     def validate_user(self, client_id, client_secret):
         """Validate user credentials by performing the OAuth flow."""
