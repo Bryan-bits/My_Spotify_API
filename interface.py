@@ -463,8 +463,12 @@ class MainInterface:
      
     def auto_refresh_recommendations(self):
         """Automatically refresh recommendations every 30 seconds."""
-        self.refresh_recommendations()
-        self.root.after(15000, self.auto_refresh_recommendations)  # 5-second interval for presentation
+        try:
+            self.refresh_recommendations()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh recommendations: {str(e)}")
+        finally:
+            self.root.after(15000, self.auto_refresh_recommendations)
 
 
     def update_topSongs(self, artist_id, artist_name):
