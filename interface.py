@@ -1079,9 +1079,15 @@ class MainInterface:
         ttk.Button(selector_window, text="Follow", command=follow_selected_artist).pack(pady=10)
 
     def refresh_saved_list(self):
-        self.saved_list = get_user_tracks(self.token)  # Update the saved list
-        # print("Saved list refreshed:", self.saved_list)
-        self.update_saved_list()  # Call method to refresh the UI if needed
+        try:
+            self.saved_list = get_user_tracks(self.token)  # Update the saved list
+            if not self.saved_list:  # Handle case where no data is returned
+                raise ValueError("No tracks found in the saved list.")
+            self.update_saved_list()  # Call method to refresh the UI if needed
+        except ValueError as ve:
+            messagebox.showwarning("No Tracks Found", str(ve))
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh saved list: {str(e)}")
 
     def refresh_followed_list(self):
         self.followed_list = get_user_followed_artists(self.token)  # Update the saved list
